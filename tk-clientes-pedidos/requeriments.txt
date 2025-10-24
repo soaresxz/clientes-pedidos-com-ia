@@ -1,0 +1,7 @@
+Tkinter (tkinter) é uma biblioteca padrão do Python.
+
+Nenhuma dependência externa é necessária para este projeto.
+
+Se estivéssemos usando um calendário ttk, adicionaríamos:
+
+ttkwidgets
