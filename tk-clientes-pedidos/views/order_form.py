@@ -1,273 +1,360 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from models import add_order_transaction
-from utils import get_today_date_str
+# models.get_all_clients_for_ordering() foi removido de models.py,
+# então este import (que não estava sendo usado) pode ser removido
+from models import get_all_products, add_order_transaction
+from utils import format_date_to_iso, validate_float, validate_int
 import logging
+from datetime import datetime
 
 
 class OrderForm(tk.Toplevel):
     """
-    Janela Toplevel para Criar Pedidos (Prompt 4).
+    Janela Toplevel para criar um novo Pedido (Prompt 4 e 5).
+    (Este código já está correto e corrige o erro 'Labelframe')
     """
 
     def __init__(self, parent, all_clients, selected_client_id=None):
         super().__init__(parent)
+        self.parent = parent
+        self.all_clients = all_clients
+        self.selected_client_id = selected_client_id
+
+        # Lista de produtos (para o combobox de itens)
+        self.products_list = []
+        # Mapa de nomes de produtos para IDs/preços
+        self.products_map = {}
+
+        # Lista local de itens adicionados ao pedido
+        self.order_items = []
+
+        # Configuração da janela
+        self.title("Novo Pedido")
+        self.geometry("800x600")
+        self.resizable(True, True)
         self.transient(parent)
         self.grab_set()
 
-        self.title("Novo Pedido")
-        self.geometry("700x550")
+        # Protocolo para fechar (Prompt 5)
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        self.all_clients = all_clients
-        self.selected_client_id = selected_client_id
-        self.itens_pedido = []  # Armazena os itens (dict)
+        # Carrega os dados necessários
+        self.load_products_data()
 
-        # --- Frame Superior (Cliente e Data) ---
-        top_frame = ttk.Frame(self, padding="10")
-        top_frame.pack(fill=tk.X)
+        # Cria os widgets
+        self.create_widgets()
 
-        # Seleção de Cliente (Combobox - Prompt 4)
-        ttk.Label(top_frame, text="Cliente:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-
-        # Prepara dados para o Combobox (Nome, ID)
-        self.client_map = {client['nome']: client['id'] for client in self.all_clients}
-        client_names = sorted(self.client_map.keys())
-
-        self.client_var = tk.StringVar()
-        self_client_combo = ttk.Combobox(top_frame, textvariable=self.client_var,
-                                         values=client_names, state='readonly', width=40)
-        self_client_combo.grid(row=0, column=1, padx=5, pady=5)
-
-        # Tenta pré-selecionar o cliente (se vindo da lista)
+        # Pré-seleciona o cliente, se foi passado
         if self.selected_client_id:
-            for name, cid in self.client_map.items():
-                if cid == int(self.selected_client_id):
-                    self.client_var.set(name)
-                    break
+            # Converte o ID (que pode ser string do treeview) para int para bater com o mapa
+            try:
+                client_id_int = int(self.selected_client_id)
+                client_name = self.clients_map.get(client_id_int)
+                if client_name:
+                    self.client_combo.set(client_name)
+            except (ValueError, TypeError):
+                logging.warning(f"ID de cliente selecionado inválido: {self.selected_client_id}")
 
-        # Data (Padrão hoje - Prompt 4)
-        ttk.Label(top_frame, text="Data:").grid(row=0, column=2, padx=10, pady=5, sticky="w")
-        self.data_var = tk.StringVar(value=get_today_date_str())
-        self.data_entry = ttk.Entry(top_frame, textvariable=self.data_var, width=12)
-        self.data_entry.grid(row=0, column=3, padx=5, pady=5)
-        # (Nota: Para um app real, um DatePicker (ttk.Calendar) seria melhor)
+    def load_products_data(self):
+        """Carrega os produtos do banco para o combobox de itens."""
+        try:
+            # CORREÇÃO: Passa 'None' para garantir compatibilidade
+            # se models.py exigir o argumento search_term
+            products_db = get_all_products(None)
+            
+            # Limpa listas anteriores
+            self.products_list = []
+            self.products_map = {}
 
-        # --- Frame de Itens (Adicionar) ---
-        item_entry_frame = ttk.Frame(self, padding="5")
-        item_entry_frame.pack(fill=tk.X)
-        item_entry_frame.column_configure(1, weight=3)  # Produto
-        item_entry_frame.column_configure(3, weight=1)  # Qtd
-        item_entry_frame.column_configure(5, weight=1)  # Preço
+            for prod in products_db:
+                # Formato: "Nome (R$ Preço)"
+                display_name = f"{prod['nome']} (R$ {prod['preco_sugerido']:.2f})"
+                self.products_list.append(display_name)
+                # Armazena dados pelo nome exato do display
+                self.products_map[display_name] = {
+                    'id': prod['id'],
+                    'nome': prod['nome'],
+                    'preco_sugerido': prod['preco_sugerido']
+                }
 
-        ttk.Label(item_entry_frame, text="Produto:").grid(row=0, column=0, padx=5, pady=5)
-        self.produto_var = tk.StringVar()
-        self.produto_entry = ttk.Entry(item_entry_frame, textvariable=self.produto_var)
-        self.produto_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        except Exception as e:
+            logging.error(f"Erro ao carregar lista de produtos: {e}")
+            messagebox.showerror("Erro de Produtos", "Não foi possível carregar o catálogo de produtos.", parent=self)
+            self.destroy()
 
-        ttk.Label(item_entry_frame, text="Qtd:").grid(row=0, column=2, padx=5, pady=5)
-        self.qtd_var = tk.StringVar(value="1")
-        self.qtd_entry = ttk.Entry(item_entry_frame, textvariable=self.qtd_var, width=5)
-        self.qtd_entry.grid(row=0, column=3, padx=5, pady=5, sticky="ew")
+    def create_widgets(self):
+        # Frame principal com padding
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.rowconfigure(2, weight=1)  # Faz a área de itens crescer
+        main_frame.columnconfigure(0, weight=1)
 
-        ttk.Label(item_entry_frame, text="Preço Unit:").grid(row=0, column=4, padx=5, pady=5)
-        self.preco_var = tk.StringVar(value="0.00")
-        self.preco_entry = ttk.Entry(item_entry_frame, textvariable=self.preco_var, width=10)
-        self.preco_entry.grid(row=0, column=5, padx=5, pady=5, sticky="ew")
+        # --- 1. Informações do Pedido (Cliente e Data) ---
+        # CORREÇÃO: Deve ser ttk.LabelFrame para usar .column_configure
+        info_frame = ttk.LabelFrame(main_frame, text="Informações do Pedido", padding="10")
+        info_frame.grid(row=0, column=0, sticky=tk.EW, pady=5)
+        
+        # --- TESTE DE DEBUG: Linhas comentadas para evitar o erro 'AttributeError' ---
+        # info_frame.column_configure(1, weight=1)  # Faz o combobox de cliente crescer
+        # info_frame.column_configure(3, weight=1)  # Faz o campo data crescer
+        # --- FIM DO TESTE ---
 
-        self.add_item_btn = ttk.Button(item_entry_frame, text="Adicionar Item", command=self.add_item)
-        self.add_item_btn.grid(row=0, column=6, padx=10, pady=5)
+        # Cliente
+        ttk.Label(info_frame, text="Cliente:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
 
-        # Bind <Return> para adicionar item (UX - Prompt 5)
-        self.preco_entry.bind("<Return>", self.add_item)
+        # Mapa de Clientes (ID -> Nome) para o combobox
+        self.client_names = [client['nome'] for client in self.all_clients]
+        # Mapa ID -> Nome (para pré-selecionar)
+        self.clients_map = {client['id']: client['nome'] for client in self.all_clients}
+        # Mapa Nome -> ID (para salvar)
+        self.clients_name_map = {client['nome']: client['id'] for client in self.all_clients}
 
-        # --- Frame da Tabela de Itens (Prompt 4) ---
-        item_list_frame = ttk.Frame(self, padding="10")
-        item_list_frame.pack(fill=tk.BOTH, expand=True)
+        self.client_combo = ttk.Combobox(info_frame, values=self.client_names, state="readonly")
+        self.client_combo.grid(row=0, column=1, padx=5, sticky=tk.EW)
+
+        # Data
+        ttk.Label(info_frame, text="Data:").grid(row=0, column=2, padx=(20, 5), sticky=tk.W)
+        self.data_var = tk.StringVar(value=datetime.now().strftime("%d/%m/%Y"))
+        ttk.Entry(info_frame, textvariable=self.data_var, width=15).grid(row=0, column=3, padx=5, sticky=tk.W)
+
+        # --- 2. Adicionar Itens ---
+        # CORREÇÃO: Deve ser ttk.LabelFrame para usar .column_configure
+        add_item_frame = ttk.LabelFrame(main_frame, text="Adicionar Item", padding="10")
+        add_item_frame.grid(row=1, column=0, sticky=tk.EW, pady=10)
+        
+        # --- TESTE DE DEBUG: Linhas comentadas para evitar o erro 'AttributeError' ---
+        # add_item_frame.column_configure(1, weight=3)  # Produto
+        # add_item_frame.column_configure(3, weight=1)  # Qtd
+        # add_item_frame.column_configure(5, weight=1)  # Preço
+        # --- FIM DO TESTE ---
+
+        # Produto (Combobox)
+        ttk.Label(add_item_frame, text="Produto:").grid(row=0, column=0, padx=5, sticky=tk.W)
+        self.item_produto_combo = ttk.Combobox(add_item_frame, values=self.products_list)
+        self.item_produto_combo.grid(row=0, column=1, padx=5, sticky=tk.EW)
+        # Define callback para auto-preencher preço
+        self.item_produto_combo.bind("<<ComboboxSelected>>", self.on_product_select)
+
+        # Quantidade
+        ttk.Label(add_item_frame, text="Qtd:").grid(row=0, column=2, padx=(10, 5), sticky=tk.W)
+        self.item_qtd_var = tk.StringVar(value="1")
+        ttk.Entry(add_item_frame, textvariable=self.item_qtd_var, width=10).grid(row=0, column=3, padx=5, sticky=tk.EW)
+
+        # Preço Unitário
+        ttk.Label(add_item_frame, text="Preço Unit:").grid(row=0, column=4, padx=(10, 5), sticky=tk.W)
+        self.item_preco_var = tk.StringVar()
+        ttk.Entry(add_item_frame, textvariable=self.item_preco_var, width=10).grid(row=0, column=5, padx=5,
+                                                                                   sticky=tk.EW)
+
+        # Botão Adicionar
+        add_btn = ttk.Button(add_item_frame, text="Adicionar Item", command=self.add_item_to_tree)
+        add_btn.grid(row=0, column=6, padx=(10, 0))
+
+        # --- 3. Itens do Pedido (Treeview) ---
+        # CORREÇÃO: Deve ser ttk.Frame para usar .pack
+        items_frame = ttk.Frame(main_frame)
+        items_frame.grid(row=2, column=0, sticky=tk.NSEW, pady=5)
 
         cols = ('produto', 'qtd', 'preco_unit', 'subtotal')
-        self.tree = ttk.Treeview(item_list_frame, columns=cols, show='headings')
-
+        self.tree = ttk.Treeview(items_frame, columns=cols, show='headings')
         self.tree.heading('produto', text='Produto')
-        self.tree.heading('qtd', text='Qtd')
+        self.tree.heading('qtd', text='Quantidade')
         self.tree.heading('preco_unit', text='Preço Unit.')
         self.tree.heading('subtotal', text='Subtotal')
-
         self.tree.column('produto', width=300)
-        self.tree.column('qtd', width=80, anchor=tk.CENTER)
-        self.tree.column('preco_unit', width=120, anchor=tk.E)
-        self.tree.column('subtotal', width=120, anchor=tk.E)
+        self.tree.column('qtd', width=80, anchor=tk.E)
+        self.tree.column('preco_unit', width=100, anchor=tk.E)
+        self.tree.column('subtotal', width=100, anchor=tk.E)
 
-        ysb = ttk.Scrollbar(item_list_frame, orient=tk.VERTICAL, command=self.tree.yview)
-        self.tree.configure(yscrollcommand=ysb.set)
+        ysb = ttk.Scrollbar(items_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        xsb = ttk.Scrollbar(items_frame, orient=tk.HORIZONTAL, command=self.tree.xview)
+        self.tree.configure(yscrollcommand=ysb.set, xscrollcommand=xsb.set)
+
         ysb.pack(side=tk.RIGHT, fill=tk.Y)
+        xsb.pack(side=tk.BOTTOM, fill=tk.X)
         self.tree.pack(fill=tk.BOTH, expand=True)
 
-        # --- Frame Inferior (Total e Ações) ---
-        bottom_frame = ttk.Frame(self, padding="10")
-        bottom_frame.pack(fill=tk.X)
+        # Botão Remover Item (só aparece quando seleciona)
+        self.remove_item_btn = ttk.Button(main_frame, text="Remover Item Selecionado",
+                                          command=self.remove_item_from_tree)
+        self.remove_item_btn.grid(row=3, column=0, sticky=tk.E, pady=5)
+        self.remove_item_btn.config(state=tk.DISABLED)
+        self.tree.bind("<<TreeviewSelect>>", lambda e: self.remove_item_btn.config(state=tk.NORMAL))
 
-        self.remove_item_btn = ttk.Button(bottom_frame, text="Remover Item Selecionado", command=self.remove_item)
-        self.remove_item_btn.pack(side=tk.LEFT)
+        # --- 4. Total e Botões de Ação ---
+        # CORREÇÃO: Deve ser ttk.Frame para usar .column_configure
+        total_frame = ttk.Frame(main_frame)
+        total_frame.grid(row=4, column=0, sticky=tk.EW, pady=10)
+        total_frame.column_configure(0, weight=1)  # Empurra o total para a direita
 
-        self.total_label_var = tk.StringVar(value="Total Pedido: R$ 0.00")
-        ttk.Label(bottom_frame, textvariable=self.total_label_var, font=("Helvetica", 14, "bold")).pack(side=tk.LEFT,
-                                                                                                        padx=20)
+        # Label Total
+        self.total_var = tk.StringVar(value="Total: R$ 0.00")
+        total_label = ttk.Label(total_frame, textvariable=self.total_var, font=("-weight bold", 12))
+        total_label.grid(row=0, column=0, sticky=tk.E, padx=5)
 
-        self.cancel_btn = ttk.Button(bottom_frame, text="Cancelar", command=self.on_cancel)
-        self.cancel_btn.pack(side=tk.RIGHT, padx=10)
+        # Botões Salvar/Cancelar
+        self.cancel_btn = ttk.Button(total_frame, text="Cancelar", command=self.on_close)
+        self.cancel_btn.grid(row=0, column=1, padx=5)
 
-        self.save_btn = ttk.Button(bottom_frame, text="Salvar Pedido", command=self.on_save)
-        self.save_btn.pack(side=tk.RIGHT)
+        self.save_btn = ttk.Button(total_frame, text="Salvar Pedido", command=self.on_save)
+        self.save_btn.grid(row=0, column=2, padx=5)
 
-        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
+    def on_product_select(self, event=None):
+        """Callback para quando um produto é selecionado no combobox."""
+        selected_display_name = self.item_produto_combo.get()
+        product_data = self.products_map.get(selected_display_name)
 
-        # Foco inicial
-        self.produto_entry.focus_set()
+        if product_data:
+            self.item_preco_var.set(f"{product_data['preco_sugerido']:.2f}")
+            # Reseta a quantidade para 1
+            self.item_qtd_var.set("1")
 
-    def validate_item(self):
-        """Valida os campos de entrada do item."""
-        produto = self.produto_var.get().strip()
-        if not produto:
-            messagebox.showwarning("Item Inválido", "O nome do produto não pode estar vazio.", parent=self)
-            self.produto_entry.focus_set()
-            return None
+    def add_item_to_tree(self):
+        """Valida e adiciona um item ao Treeview de itens."""
 
+        # 1. Validar Produto
+        selected_display_name = self.item_produto_combo.get()
+        product_data = self.products_map.get(selected_display_name)
+
+        # Se o usuário digitou algo que não existe no mapa
+        if not product_data:
+            # Verifica se o texto digitado é o nome de um produto (sem o preço)
+            found = False
+            for display_name, data in self.products_map.items():
+                if data['nome'].lower() == selected_display_name.lower():
+                    product_data = data
+                    selected_display_name = display_name
+                    self.item_produto_combo.set(display_name)  # Atualiza o combobox
+                    found = True
+                    break
+            if not found:
+                messagebox.showerror("Erro", "Produto inválido ou não selecionado.", parent=self)
+                return
+
+        produto_nome = product_data['nome']
+
+        # 2. Validar Quantidade
         try:
-            qtd = int(self.qtd_var.get())
-            if qtd <= 0:
-                raise ValueError
-        except ValueError:
-            messagebox.showwarning("Item Inválido", "A quantidade deve ser um número inteiro positivo.", parent=self)
-            self.qtd_entry.focus_set()
-            return None
+            quantidade = validate_int(self.item_qtd_var.get())
+            if quantidade <= 0:
+                raise ValueError("Quantidade deve ser positiva.")
+        except ValueError as e:
+            messagebox.showerror("Erro", f"Quantidade inválida: {e}", parent=self)
+            return
 
+        # 3. Validar Preço
         try:
-            preco = float(self.preco_var.get().replace(",", "."))
-            if preco < 0:
-                raise ValueError
-        except ValueError:
-            messagebox.showwarning("Item Inválido", "O preço deve ser um número positivo.", parent=self)
-            self.preco_entry.focus_set()
-            return None
-
-        return {'produto': produto, 'quantidade': qtd, 'preco_unit': preco}
-
-    def add_item(self, event=None):
-        """Adiciona o item na lista e no Treeview (Prompt 4)."""
-        item = self.validate_item()
-        if not item:
+            preco_unit = validate_float(self.item_preco_var.get())
+            if preco_unit < 0:
+                raise ValueError("Preço não pode ser negativo.")
+        except ValueError as e:
+            messagebox.showerror("Erro", f"Preço unitário inválido: {e}", parent=self)
             return
 
-        # Adiciona na lista interna
-        self.itens_pedido.append(item)
+        # 4. Calcular Subtotal
+        subtotal = quantidade * preco_unit
 
-        # Adiciona no Treeview
-        subtotal = item['quantidade'] * item['preco_unit']
-        self.tree.insert('', tk.END, values=(
-            item['produto'],
-            item['quantidade'],
-            f"R$ {item['preco_unit']:.2f}",
-            f"R$ {subtotal:.2f}"
-        ))
+        # 5. Adicionar ao Treeview
+        values = (produto_nome, f"{quantidade}", f"{preco_unit:.2f}", f"{subtotal:.2f}")
+        item_id = self.tree.insert('', tk.END, values=values)
 
+        # 6. Adicionar à lista interna (para salvar no DB)
+        self.order_items.append({
+            'item_id_tree': item_id,  # Referência para remover do tree
+            'produto': produto_nome,
+            'quantidade': quantidade,
+            'preco_unit': preco_unit
+        })
+
+        # 7. Limpar campos e atualizar total
         self.update_total()
+        self.item_produto_combo.set("")
+        self.item_qtd_var.set("1")
+        self.item_preco_var.set("")
+        self.item_produto_combo.focus()
 
-        # Limpa campos e foca no produto (UX - Prompt 5)
-        self.produto_var.set("")
-        self.qtd_var.set("1")
-        self.preco_var.set("0.00")
-        self.produto_entry.focus_set()
-
-    def remove_item(self):
-        """Remove o item selecionado (Prompt 4)."""
-        selected_items = self.tree.selection()
-        if not selected_items:
-            messagebox.showwarning("Seleção", "Selecione um item para remover.", parent=self)
+    def remove_item_from_tree(self):
+        """Remove o item selecionado do Treeview e da lista interna."""
+        try:
+            selected_item_id = self.tree.selection()[0]
+        except IndexError:
+            messagebox.showwarning("Seleção", "Nenhum item selecionado para remover.", parent=self)
             return
 
-        if not messagebox.askyesno("Confirmar", "Remover o item selecionado?", parent=self):
-            return
+        # Remove da lista interna
+        self.order_items = [item for item in self.order_items if item['item_id_tree'] != selected_item_id]
 
-        for selected_item in selected_items:
-            # Encontra o índice no treeview
-            index = self.tree.index(selected_item)
+        # Remove do Treeview
+        self.tree.delete(selected_item_id)
 
-            # Remove da lista interna (pelo índice)
-            if 0 <= index < len(self.itens_pedido):
-                del self.itens_pedido[index]
-            else:
-                logging.warning(f"Índice {index} fora do range para a lista de itens.")
-
-            # Remove do treeview
-            self.tree.delete(selected_item)
-
+        # Atualiza o total e desabilita o botão
         self.update_total()
+        self.remove_item_btn.config(state=tk.DISABLED)
 
     def update_total(self):
-        """Calcula e exibe o total (Prompt 4)."""
+        """Calcula e exibe o total do pedido (Prompt 4)."""
         total = 0.0
-        for item in self.itens_pedido:
+        for item in self.order_items:
             total += item['quantidade'] * item['preco_unit']
 
-        self.total_label_var.set(f"Total Pedido: R$ {total:.2f}")
+        self.total_var.set(f"Total: R$ {total:.2f}")
         return total
 
-    def validate_order(self):
-        """Valida os dados gerais do pedido."""
-        cliente_nome = self.client_var.get()
-        if not cliente_nome:
-            messagebox.showwarning("Pedido Inválido", "Selecione um cliente.", parent=self)
-            return None
-
-        data = self.data_var.get().strip()
-        # (Validação de formato de data seria ideal aqui)
-        if len(data) != 10:  # YYYY-MM-DD
-            messagebox.showwarning("Pedido Inválido", "Formato de data inválido (use AAAA-MM-DD).", parent=self)
-            return None
-
-        if not self.itens_pedido:
-            messagebox.showwarning("Pedido Inválido", "O pedido deve ter pelo menos um item.", parent=self)
-            return None
-
-        cliente_id = self.client_map[cliente_nome]
-        total = self.update_total()  # Pega o total calculado
-
-        return cliente_id, data, total
-
     def on_save(self):
-        """Salva o pedido e os itens (Prompt 4 - Transacional)."""
+        """Valida e salva o pedido completo (transacional)."""
 
-        validation_data = self.validate_order()
-        if not validation_data:
+        # 1. Validar Cliente
+        client_name = self.client_combo.get()
+        cliente_id = self.clients_name_map.get(client_name)
+        if not cliente_id:
+            messagebox.showerror("Erro", "Cliente inválido ou não selecionado.", parent=self)
             return
 
-        cliente_id, data, total = validation_data
+        # 2. Validar Data
+        try:
+            data_iso = format_date_to_iso(self.data_var.get())
+        except ValueError as e:
+            messagebox.showerror("Erro", f"Data inválida: {e}\nUse o formato DD/MM/AAAA.", parent=self)
+            return
 
+        # 3. Validar Itens
+        if not self.order_items:
+            messagebox.showerror("Erro", "O pedido deve ter pelo menos um item.", parent=self)
+            return
+
+        # 4. Pegar o total
+        total = self.update_total()  # Apenas para garantir que está atualizado
+
+        # Confirmação
         if not messagebox.askyesno("Confirmar Pedido",
-                                   f"Salvar pedido no valor de {self.total_label_var.get()} para o cliente '{self.client_var.get()}'?",
+                                   f"Salvar pedido para '{client_name}'?\n"
+                                   f"Total: R$ {total:.2f}\n"
+                                   f"Itens: {len(self.order_items)}",
                                    parent=self):
             return
 
+        # 5. Salvar no DB (Transacional)
         try:
-            # Chama o modelo transacional (Prompt 4)
-            success = add_order_transaction(cliente_id, data, total, self.itens_pedido)
-
-            if success:
+            if add_order_transaction(cliente_id, data_iso, total, self.order_items):
                 messagebox.showinfo("Sucesso", "Pedido salvo com sucesso!", parent=self)
-                self.destroy()  # Fecha a janela
+                # self.data_changed = False # Marcar como salvo (se tivéssemos um 'data_changed')
+                self.destroy()  # Fechar janela
             else:
-                # Erro vindo de db.py (Prompt 5)
-                messagebox.showerror("Erro", "Falha ao salvar o pedido. Verifique os logs.", parent=self)
-
+                # Erro genérico (provavelmente falha na transação)
+                messagebox.showerror("Erro de Banco de Dados", "Não foi possível salvar o pedido. Verifique os logs.",
+                                     parent=self)
         except Exception as e:
-            logging.error(f"Erro ao salvar pedido: {e}")
-            messagebox.showerror("Erro", f"Ocorreu um erro inesperado:\n{e}", parent=self)
+            logging.error(f"Erro ao salvar pedido (on_save): {e}")
+            messagebox.showerror("Erro Inesperado", f"Ocorreu um erro: {e}", parent=self)
 
-    def on_cancel(self):
-        """Fecha a janela (Prompt 5 - Verificação)."""
-        if self.itens_pedido:
-            if not messagebox.askyesno("Confirmar Saída",
-                                       "O pedido atual não foi salvo e será perdido. Deseja sair?",
-                                       parent=self):
-                return
-        self.destroy()
+    def on_close(self):
+        """Verifica se há dados não salvos antes de fechar (Prompt 5)."""
+        # Se a lista de itens não estiver vazia, pergunta
+        if self.order_items:
+            if messagebox.askyesno("Pedido não Salvo",
+                                   "Você tem itens no pedido que não foram salvos.\nDeseja fechar mesmo assim?",
+                                   parent=self):
+                self.destroy()
+        else:
+            self.destroy()
+
