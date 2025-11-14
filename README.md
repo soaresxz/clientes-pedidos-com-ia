@@ -59,3 +59,46 @@ Este é um aplicativo desktop simples criado com Python e Tkinter para gerenciar
 
 **Prompt 5 — UX e validações**
 > “Melhore UX do app: mensagens amigáveis (messagebox), validações com feedback, prevenção de fechar janela com dados não salvos, e try/except com logs simples.”
+
+**Prompt 6 — Dashboard inicial**
+> “Crie uma tela inicial (Frame ou Toplevel) chamada Dashboard que exiba:
+• total de clientes,
+• total de pedidos no mês,
+• ticket médio.
+Use consultas SQLite agregadas e widgets Label para mostrar os números.
+Inclua botão Atualizar para recalcular e mostre mensagens amigáveis via 
+messagebox.”
+
+**Prompt 7 — Relatorios e exportação**
+> “Implemente uma janela ‘Relatórios’ com filtros por data inicial/final e cliente 
+(Combobox).
+Liste os pedidos filtrados em uma Treeview mostrando cliente, data, itens e total.
+Adicione botões para Exportar CSV e Exportar PDF (usando reportlab) e abra o arquivo 
+após gerar.
+Use tratamento try/except e logging.”
+
+**Prompt 8 — Análise IA**
+> “Adicione botão ‘Analisar Pedidos’ que lê os 5 últimos pedidos do banco, gera um 
+resumo textual e envia via API para ChatGPT ou Ollama local.
+A IA deve retornar insights como ‘produtos mais vendidos’ ou ‘média de valor’.
+Mostre o resultado em Text widget com rolagem.
+Mantenha a função analisar_pedidos() em utils.py e registre no README o prompt 
+usado.”
+
+**Prompt 9 — Histórico de ações**
+> “Adicione registro automático de ações (Criar, Editar, Excluir Cliente/Pedido) em 
+logs/app.log com timestamp.
+Crie janela ‘Histórico’ que lê esse arquivo e exibe os eventos em Listbox ou Text.
+Inclua botão ‘Limpar Histórico’ com confirmação via messagebox.”
+
+**Prompt 10 — Menu e melhoria de UI/UX**
+> “Implemente menu principal (Menu bar) com opções:
+• Clientes
+• Pedidos
+• Relatórios
+• IA / Análises
+• Sair
+Bloqueie fechamento se houver alterações não salvas, exiba confirmações, e permita 
+alternar tema claro/escuro via ttk.Style().
+Mantenha estilo limpo e responsivo.”
+
