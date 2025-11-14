@@ -3,6 +3,7 @@ from datetime import datetime
 import logging
 import json
 import requests
+from dotenv import load_dotenv
 
 # Padrão de regex simples para e-mail (Prompt 2)
 EMAIL_REGEX = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -10,9 +11,10 @@ EMAIL_REGEX = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 # Padrão para telefone, 8 a 15 dígitos (Prompt 2)
 PHONE_REGEX = r'^\d{8,15}$'
 
+load_dotenv()
 # Configuração da API Google Gemini
-GEMINI_API_KEY = "AIzaSyA1d5QsqiuFnGkGhwrztKxS31MZy230_2k"  # Substitua pela sua chave do Gemini
-GEMINI_MODEL = "gemini-2.5-flash"  # Modelo gratuito e rápido
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")  
+GEMINI_MODEL = "gemini-2.5-flash"  
 
 def validate_email(email):
     """Valida um formato de e-mail simples."""
