@@ -14,6 +14,7 @@ Este é um aplicativo desktop simples criado com Python e Tkinter para gerenciar
     * `order_form.py`: Janela (Toplevel) para criar novos pedidos.
     * `product_form`: Janela (Toplevel) para criar novos produtos.
     * `product_list`: Frame com lista (Treeview) de produtos.
+    * `dashboard.py`: Tela inicial com métricas (Dashboard).
 * `clientes_pedidos.db`: Arquivo do banco de dados (criado na primeira execução).
 * `app.log`: Arquivo de log (criado na primeira execução).
 
@@ -32,14 +33,22 @@ Este é um aplicativo desktop simples criado com Python e Tkinter para gerenciar
     python -m venv .venv
     .\.venv\Scripts\activate
     ```
+3.  Crie um arquivo chamado .env na pasta raiz do projeto (ex: tk-clientes-pedidos/.env).
+  
+    3.1 Dentro deste arquivo, adicione sua chave de API no seguinte formato:
 
-3.  Execute o arquivo `main.py`:
+     ```bash
+     GEMINI_API_KEY="SUA_CHAVE_DE_API_SECRETA_AQUI"
+     ```
+
+
+5.  Execute o arquivo `main.py`:
 
     ```bash
     python main.py
     ```
 
-4.  O banco de dados `clientes_pedidos.db` e o log `app.log` serão criados automaticamente no diretório.
+6.  O banco de dados `clientes_pedidos.db` e o log `app.log` serão criados automaticamente no diretório.
 
 ---
 
