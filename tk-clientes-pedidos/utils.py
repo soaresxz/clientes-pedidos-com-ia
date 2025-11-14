@@ -3,6 +3,7 @@ from datetime import datetime
 import logging
 import json
 import requests
+import os
 from dotenv import load_dotenv
 
 # Padrão de regex simples para e-mail (Prompt 2)
