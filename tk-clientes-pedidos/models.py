@@ -1,5 +1,6 @@
 from db import execute_query, execute_transaction
 import logging
+from datetime import datetime
 
 
 # --- Funções de Clientes (Prompts 2, 3) ---
@@ -8,8 +9,8 @@ def add_client(nome, email, telefone):
     """Adiciona um novo cliente."""
     query = "INSERT INTO clientes (nome, email, telefone) VALUES (?, ?, ?)"
     try:
-        execute_query(query, (nome, email, telefone), commit=True)
-        return True
+        new_id = execute_query(query, (nome, email, telefone), commit=True)
+        return new_id
     except ValueError as e:  # Captura o erro de e-mail duplicado de db.py
         logging.warning(f"Falha ao adicionar cliente: {e}")
         raise e  # Re-levanta para o formulário exibir a mensagem
@@ -37,6 +38,12 @@ def delete_client(client_id):
     query = "DELETE FROM clientes WHERE id = ?"
     try:
         execute_query(query, (client_id,), commit=True)
+        
+        # LOG: Registro de exclusão
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_msg = f"[CLIENTE] Excluído - ID: {client_id}"
+        logging.info(log_msg)
+        
         return True
     except Exception as e:
         logging.error(f"Erro ao excluir cliente {client_id}: {e}")
@@ -93,9 +100,35 @@ def add_order_transaction(cliente_id, data, total, itens):
         operations.append((item_query, item_params))
 
     try:
-        return execute_transaction(operations)
+        success = execute_transaction(operations)
+        
+        if success:
+            # LOG: Registro de criação de pedido
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            produtos = ", ".join([f"{item['produto']} (Qtd: {item['quantidade']})" for item in itens])
+            log_msg = f"[PEDIDO] Criado - Cliente ID: {cliente_id}, Total: R$ {total:.2f}, Itens: {len(itens)} ({produtos})"
+            logging.info(log_msg)
+        
+        return success
     except Exception as e:
         logging.error(f"Erro ao criar transação de pedido: {e}")
+        return False
+
+
+def delete_order(order_id):
+    """Exclui um pedido (e seus itens em cascata)."""
+    query = "DELETE FROM pedidos WHERE id = ?"
+    try:
+        execute_query(query, (order_id,), commit=True)
+        
+        # LOG: Registro de exclusão
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_msg = f"[PEDIDO] Excluído - ID: {order_id}"
+        logging.info(log_msg)
+        
+        return True
+    except Exception as e:
+        logging.error(f"Erro ao excluir pedido {order_id}: {e}")
         return False
 
 
@@ -106,8 +139,14 @@ def add_product(nome, preco_sugerido):
     """Adiciona um novo produto."""
     query = "INSERT INTO produtos (nome, preco_sugerido) VALUES (?, ?)"
     try:
-        execute_query(query, (nome, preco_sugerido), commit=True)
-        return True
+        new_id = execute_query(query, (nome, preco_sugerido), commit=True)
+        
+        # LOG: Registro de criação
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_msg = f"[PRODUTO] Criado - ID: {new_id}, Nome: {nome}, Preço: R$ {preco_sugerido:.2f}"
+        logging.info(log_msg)
+        
+        return new_id
     except ValueError as e:
         logging.warning(f"Falha ao adicionar produto: {e}")
         raise e
@@ -121,6 +160,12 @@ def update_product(product_id, nome, preco_sugerido):
     query = "UPDATE produtos SET nome = ?, preco_sugerido = ? WHERE id = ?"
     try:
         execute_query(query, (nome, preco_sugerido, product_id), commit=True)
+        
+        # LOG: Registro de edição
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_msg = f"[PRODUTO] Editado - ID: {product_id}, Nome: {nome}, Preço: R$ {preco_sugerido:.2f}"
+        logging.info(log_msg)
+        
         return True
     except ValueError as e:
         logging.warning(f"Falha ao atualizar produto: {e}")
@@ -135,6 +180,12 @@ def delete_product(product_id):
     query = "DELETE FROM produtos WHERE id = ?"
     try:
         execute_query(query, (product_id,), commit=True)
+        
+        # LOG: Registro de exclusão
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_msg = f"[PRODUTO] Excluído - ID: {product_id}"
+        logging.info(log_msg)
+        
         return True
     except Exception as e:
         logging.error(f"Erro ao excluir produto {product_id}: {e}")
@@ -167,4 +218,3 @@ def get_product_by_id(product_id):
     except Exception as e:
         logging.error(f"Erro ao buscar produto {product_id}: {e}")
         return None
-

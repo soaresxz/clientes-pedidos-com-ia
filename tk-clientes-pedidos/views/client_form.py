@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import logging
+from datetime import datetime
 # Importa os nomes de função corretos do utils.py
 from utils import validate_email, validate_phone
 from models import add_client, get_client_by_id, update_client
@@ -144,7 +145,11 @@ class ClientForm(tk.Toplevel):
             if self.client_id:
                 # --- Atualizar Cliente ---
                 if update_client(self.client_id, nome, email, telefone):
-                    logging.info(f"Cliente (ID: {self.client_id}) atualizado.")
+                    # LOG: Registro de edição
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    log_msg = f"[CLIENTE] Editado - ID: {self.client_id}, Nome: {nome}, Email: {email}"
+                    logging.info(log_msg)
+                    
                     messagebox.showinfo("Sucesso", f"Cliente '{nome}' atualizado com sucesso.", parent=self)
                 else:
                     messagebox.showerror("Erro", "Falha ao atualizar o cliente.", parent=self)
@@ -153,7 +158,11 @@ class ClientForm(tk.Toplevel):
                 # --- Adicionar Novo Cliente ---
                 new_id = add_client(nome, email, telefone)
                 if new_id:
-                    logging.info(f"Cliente '{nome}' (ID: {new_id}) adicionado.")
+                    # LOG: Registro de criação
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    log_msg = f"[CLIENTE] Criado - ID: {new_id}, Nome: {nome}, Email: {email}"
+                    logging.info(log_msg)
+                    
                     messagebox.showinfo("Sucesso", f"Cliente '{nome}' cadastrado com sucesso.", parent=self)
                 else:
                     messagebox.showerror("Erro", "Falha ao cadastrar o cliente.", parent=self)
@@ -182,4 +191,3 @@ class ClientForm(tk.Toplevel):
                 return # Não fecha
         
         self.destroy()
-

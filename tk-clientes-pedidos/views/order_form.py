@@ -1,7 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-# models.get_all_clients_for_ordering() foi removido de models.py,
-# então este import (que não estava sendo usado) pode ser removido
 from models import get_all_products, add_order_transaction
 from utils import format_date_to_iso, validate_float, validate_int
 import logging
@@ -11,7 +9,6 @@ from datetime import datetime
 class OrderForm(tk.Toplevel):
     """
     Janela Toplevel para criar um novo Pedido (Prompt 4 e 5).
-    (Este código já está correto e corrige o erro 'Labelframe')
     """
 
     def __init__(self, parent, all_clients, selected_client_id=None):
@@ -46,7 +43,6 @@ class OrderForm(tk.Toplevel):
 
         # Pré-seleciona o cliente, se foi passado
         if self.selected_client_id:
-            # Converte o ID (que pode ser string do treeview) para int para bater com o mapa
             try:
                 client_id_int = int(self.selected_client_id)
                 client_name = self.clients_map.get(client_id_int)
@@ -58,8 +54,6 @@ class OrderForm(tk.Toplevel):
     def load_products_data(self):
         """Carrega os produtos do banco para o combobox de itens."""
         try:
-            # CORREÇÃO: Passa 'None' para garantir compatibilidade
-            # se models.py exigir o argumento search_term
             products_db = get_all_products(None)
             
             # Limpa listas anteriores
@@ -70,7 +64,6 @@ class OrderForm(tk.Toplevel):
                 # Formato: "Nome (R$ Preço)"
                 display_name = f"{prod['nome']} (R$ {prod['preco_sugerido']:.2f})"
                 self.products_list.append(display_name)
-                # Armazena dados pelo nome exato do display
                 self.products_map[display_name] = {
                     'id': prod['id'],
                     'nome': prod['nome'],
@@ -90,23 +83,17 @@ class OrderForm(tk.Toplevel):
         main_frame.columnconfigure(0, weight=1)
 
         # --- 1. Informações do Pedido (Cliente e Data) ---
-        # CORREÇÃO: Deve ser ttk.LabelFrame para usar .column_configure
         info_frame = ttk.LabelFrame(main_frame, text="Informações do Pedido", padding="10")
         info_frame.grid(row=0, column=0, sticky=tk.EW, pady=5)
-        
-        # --- TESTE DE DEBUG: Linhas comentadas para evitar o erro 'AttributeError' ---
-        # info_frame.column_configure(1, weight=1)  # Faz o combobox de cliente crescer
-        # info_frame.column_configure(3, weight=1)  # Faz o campo data crescer
-        # --- FIM DO TESTE ---
+        info_frame.columnconfigure(1, weight=1)  # CORRIGIDO: columnconfigure
+        info_frame.columnconfigure(3, weight=1)
 
         # Cliente
         ttk.Label(info_frame, text="Cliente:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
 
         # Mapa de Clientes (ID -> Nome) para o combobox
         self.client_names = [client['nome'] for client in self.all_clients]
-        # Mapa ID -> Nome (para pré-selecionar)
         self.clients_map = {client['id']: client['nome'] for client in self.all_clients}
-        # Mapa Nome -> ID (para salvar)
         self.clients_name_map = {client['nome']: client['id'] for client in self.all_clients}
 
         self.client_combo = ttk.Combobox(info_frame, values=self.client_names, state="readonly")
@@ -118,21 +105,16 @@ class OrderForm(tk.Toplevel):
         ttk.Entry(info_frame, textvariable=self.data_var, width=15).grid(row=0, column=3, padx=5, sticky=tk.W)
 
         # --- 2. Adicionar Itens ---
-        # CORREÇÃO: Deve ser ttk.LabelFrame para usar .column_configure
         add_item_frame = ttk.LabelFrame(main_frame, text="Adicionar Item", padding="10")
         add_item_frame.grid(row=1, column=0, sticky=tk.EW, pady=10)
-        
-        # --- TESTE DE DEBUG: Linhas comentadas para evitar o erro 'AttributeError' ---
-        # add_item_frame.column_configure(1, weight=3)  # Produto
-        # add_item_frame.column_configure(3, weight=1)  # Qtd
-        # add_item_frame.column_configure(5, weight=1)  # Preço
-        # --- FIM DO TESTE ---
+        add_item_frame.columnconfigure(1, weight=3)  # CORRIGIDO: columnconfigure
+        add_item_frame.columnconfigure(3, weight=1)
+        add_item_frame.columnconfigure(5, weight=1)
 
         # Produto (Combobox)
         ttk.Label(add_item_frame, text="Produto:").grid(row=0, column=0, padx=5, sticky=tk.W)
         self.item_produto_combo = ttk.Combobox(add_item_frame, values=self.products_list)
         self.item_produto_combo.grid(row=0, column=1, padx=5, sticky=tk.EW)
-        # Define callback para auto-preencher preço
         self.item_produto_combo.bind("<<ComboboxSelected>>", self.on_product_select)
 
         # Quantidade
@@ -143,15 +125,13 @@ class OrderForm(tk.Toplevel):
         # Preço Unitário
         ttk.Label(add_item_frame, text="Preço Unit:").grid(row=0, column=4, padx=(10, 5), sticky=tk.W)
         self.item_preco_var = tk.StringVar()
-        ttk.Entry(add_item_frame, textvariable=self.item_preco_var, width=10).grid(row=0, column=5, padx=5,
-                                                                                   sticky=tk.EW)
+        ttk.Entry(add_item_frame, textvariable=self.item_preco_var, width=10).grid(row=0, column=5, padx=5, sticky=tk.EW)
 
         # Botão Adicionar
         add_btn = ttk.Button(add_item_frame, text="Adicionar Item", command=self.add_item_to_tree)
         add_btn.grid(row=0, column=6, padx=(10, 0))
 
         # --- 3. Itens do Pedido (Treeview) ---
-        # CORREÇÃO: Deve ser ttk.Frame para usar .pack
         items_frame = ttk.Frame(main_frame)
         items_frame.grid(row=2, column=0, sticky=tk.NSEW, pady=5)
 
@@ -174,7 +154,7 @@ class OrderForm(tk.Toplevel):
         xsb.pack(side=tk.BOTTOM, fill=tk.X)
         self.tree.pack(fill=tk.BOTH, expand=True)
 
-        # Botão Remover Item (só aparece quando seleciona)
+        # Botão Remover Item
         self.remove_item_btn = ttk.Button(main_frame, text="Remover Item Selecionado",
                                           command=self.remove_item_from_tree)
         self.remove_item_btn.grid(row=3, column=0, sticky=tk.E, pady=5)
@@ -182,12 +162,11 @@ class OrderForm(tk.Toplevel):
         self.tree.bind("<<TreeviewSelect>>", lambda e: self.remove_item_btn.config(state=tk.NORMAL))
 
         # --- 4. Total e Botões de Ação ---
-        # CORREÇÃO: Deve ser ttk.Frame para usar .column_configure
         total_frame = ttk.Frame(main_frame)
         total_frame.grid(row=4, column=0, sticky=tk.EW, pady=10)
-        total_frame.column_configure(0, weight=1)  # Empurra o total para a direita
+        total_frame.columnconfigure(0, weight=1)  # CORRIGIDO: columnconfigure
 
-        # Label Total
+        # Label Total - CORRIGIDO: Criar ANTES de usar
         self.total_var = tk.StringVar(value="Total: R$ 0.00")
         total_label = ttk.Label(total_frame, textvariable=self.total_var, font=("-weight bold", 12))
         total_label.grid(row=0, column=0, sticky=tk.E, padx=5)
@@ -206,7 +185,6 @@ class OrderForm(tk.Toplevel):
 
         if product_data:
             self.item_preco_var.set(f"{product_data['preco_sugerido']:.2f}")
-            # Reseta a quantidade para 1
             self.item_qtd_var.set("1")
 
     def add_item_to_tree(self):
@@ -216,15 +194,13 @@ class OrderForm(tk.Toplevel):
         selected_display_name = self.item_produto_combo.get()
         product_data = self.products_map.get(selected_display_name)
 
-        # Se o usuário digitou algo que não existe no mapa
         if not product_data:
-            # Verifica se o texto digitado é o nome de um produto (sem o preço)
             found = False
             for display_name, data in self.products_map.items():
                 if data['nome'].lower() == selected_display_name.lower():
                     product_data = data
                     selected_display_name = display_name
-                    self.item_produto_combo.set(display_name)  # Atualiza o combobox
+                    self.item_produto_combo.set(display_name)
                     found = True
                     break
             if not found:
@@ -258,9 +234,9 @@ class OrderForm(tk.Toplevel):
         values = (produto_nome, f"{quantidade}", f"{preco_unit:.2f}", f"{subtotal:.2f}")
         item_id = self.tree.insert('', tk.END, values=values)
 
-        # 6. Adicionar à lista interna (para salvar no DB)
+        # 6. Adicionar à lista interna
         self.order_items.append({
-            'item_id_tree': item_id,  # Referência para remover do tree
+            'item_id_tree': item_id,
             'produto': produto_nome,
             'quantidade': quantidade,
             'preco_unit': preco_unit
@@ -292,7 +268,7 @@ class OrderForm(tk.Toplevel):
         self.remove_item_btn.config(state=tk.DISABLED)
 
     def update_total(self):
-        """Calcula e exibe o total do pedido (Prompt 4)."""
+        """Calcula e exibe o total do pedido."""
         total = 0.0
         for item in self.order_items:
             total += item['quantidade'] * item['preco_unit']
@@ -323,7 +299,7 @@ class OrderForm(tk.Toplevel):
             return
 
         # 4. Pegar o total
-        total = self.update_total()  # Apenas para garantir que está atualizado
+        total = self.update_total()
 
         # Confirmação
         if not messagebox.askyesno("Confirmar Pedido",
@@ -337,10 +313,8 @@ class OrderForm(tk.Toplevel):
         try:
             if add_order_transaction(cliente_id, data_iso, total, self.order_items):
                 messagebox.showinfo("Sucesso", "Pedido salvo com sucesso!", parent=self)
-                # self.data_changed = False # Marcar como salvo (se tivéssemos um 'data_changed')
-                self.destroy()  # Fechar janela
+                self.destroy()
             else:
-                # Erro genérico (provavelmente falha na transação)
                 messagebox.showerror("Erro de Banco de Dados", "Não foi possível salvar o pedido. Verifique os logs.",
                                      parent=self)
         except Exception as e:
@@ -348,8 +322,7 @@ class OrderForm(tk.Toplevel):
             messagebox.showerror("Erro Inesperado", f"Ocorreu um erro: {e}", parent=self)
 
     def on_close(self):
-        """Verifica se há dados não salvos antes de fechar (Prompt 5)."""
-        # Se a lista de itens não estiver vazia, pergunta
+        """Verifica se há dados não salvos antes de fechar."""
         if self.order_items:
             if messagebox.askyesno("Pedido não Salvo",
                                    "Você tem itens no pedido que não foram salvos.\nDeseja fechar mesmo assim?",
@@ -357,4 +330,3 @@ class OrderForm(tk.Toplevel):
                 self.destroy()
         else:
             self.destroy()
-

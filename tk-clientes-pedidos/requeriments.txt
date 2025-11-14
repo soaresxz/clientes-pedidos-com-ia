@@ -1,7 +1,11 @@
-Tkinter (tkinter) é uma biblioteca padrão do Python.
+# tkinter é uma biblioteca padrão do Python (não precisa instalar)
 
-Nenhuma dependência externa é necessária para este projeto.
+# Dependências para análise de pedidos com IA
+requests>=2.31.0  # Para fazer requisições HTTP às APIs (OpenAI e Ollama)
 
-Se estivéssemos usando um calendário ttk, adicionaríamos:
+# Opcional: Para usar OpenAI ChatGPT
+# openai>=1.0.0  # Biblioteca oficial da OpenAI (caso prefira usar ao invés de requests)
 
-ttkwidgets
+# Nota: Para usar Ollama localmente, instale o Ollama em:
+# https://ollama.ai/download
+# E execute: ollama pull llama3
